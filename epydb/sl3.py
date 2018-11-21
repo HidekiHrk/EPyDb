@@ -1,6 +1,15 @@
 import sqlite3
 from collections import namedtuple
 
+# Utility Functions #
+def create_pairs(list1, list2):
+	if len(list1) != len(list2):
+		raise ValueError('Both lists must have the same length.')
+	if len(list1) == 1:
+		return [[list1[0], list2[0]]]
+	else:
+		return [[list1[0], list2[0]], *create_pairs(list1[1:], list2[1:])]
+
 #	Error Classes #
 class TableError(Exception):
 	def __init__(self, string):
@@ -8,7 +17,13 @@ class TableError(Exception):
 	def __repr__(self):
 		return self.string
 
-class ColumnTypeError(Exception):
+class ColumnError(Exception):
+	def __init__(self, string):
+		self.string = string
+	def __repr__(self):
+		return self.string
+
+class RowError(Exception):
 	def __init__(self, string):
 		self.string = string
 	def __repr__(self):
@@ -42,7 +57,7 @@ class Sl3:
 				table_columns_string.append('%s %s' % (arg, argtype.upper()))
 				continue
 			else:
-				raise ColumnTypeError('Column type must be one of these ( %s ), not \'%s\'' % 
+				raise ColumnError('Column type must be one of these ( %s ), not \'%s\'' % 
 					(', '.join(supported_types), argtype)
 				)
 		else:
@@ -62,19 +77,18 @@ class Sl3:
 	# Script to delete tables #
 	def del_table(self, tablename, ignore=False):
 		self.__cursor.execute(
-			"SELECT COUNT(*) FROM sqlite_master WHERE type'table' AND name=?",
+			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
 			(tablename,)
 		)
 		if self.__cursor.fetchall()[0][0] > 0:
 			self.__cursor.execute("DROP TABLE %s" % tablename)
-			self.__cursor.commit()
+			self.__conn.commit()
 		else:
 			if not ignore:
 				raise TableError('Table %s not exists.' % tablename)
 		return self
 
-	#def create_row(self):
-
+	# List All tables in Database #
 	def list_tables(self):
 		self.__cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 		table_tuple = namedtuple('table', 'name cols')
@@ -87,6 +101,87 @@ class Sl3:
 			table_tuple_list.append(table_tuple(tablename, cols))
 		return tuple(table_tuple_list)
 
+	# Get an table in database #
+	def get_table(self, tablename):
+		if type(tablename) != str:
+			raise TypeError('Must be str, not %s' % type(tablename).__name__)
+		tblst = self.list_tables()
+		final_table = list(filter(lambda x: x.name == tablename, tblst))
+		return final_table[0] if len(final_table) >= 1 else None
+
+	# Create Row #
+	def create_row(self, tablename, data):
+		if type(tablename) != str:
+			raise TypeError('Must be str, not %s' % type(tablename).__name__)
+		if type(data) != dict:
+			raise TypeError('Must be dict, not %s' % type(data).__name__)
+		basecol = data.get('basecol')
+		if basecol == None:
+			raise ValueError('Data needs a basecol to hash.')
+		elif type(basecol) != str:
+			raise TypeError('basecol must be str, not %s' % type(basecol).__name__)
+		elif data.get(basecol) == None:
+			raise ValueError('basecol value must be a column name.')
+		del data['basecol']
+		table = self.get_table(tablename)
+		if table == None:
+			raise TableError('Table %s not exists.' % tablename)
+		tbcols = list(map(lambda x: x.name, table.cols))
+		if not all(x in data for x in tbcols):
+			raise ColumnError('Missing columns.')
+		if any(x not in tbcols for x in data):
+			raise ColumnError('Incorrect columns.')
+		self.__cursor.execute("SELECT COUNT(*) FROM %s where %s = ?" % (tablename, basecol), (data.get(basecol),))
+		if self.__cursor.fetchone()[0] >= 1:
+			raise RowError('This row already exists.')
+		self.__cursor.execute('INSERT INTO %s (%s) values(%s)' % (tablename, ', '.join(data), '?' * len(data))
+			, (*list(map(lambda x: data.get(x), data)),)
+		)
+		self.__conn.commit()
+		return namedtuple('row', 'values')(dict(list(map(lambda x: [x, data.get(x)], data))))
+
+	# Get Row #
+	def get_row(self, tablename, basecol, basevalue):
+		for x in [tablename, basecol]:
+			if type(x) != str:
+				raise TypeError('Must be str, not %s' % type(x).__name__)
+		if type(basevalue) not in [int, str]:
+			raise TypeError('Must be int, not %s' % type(basevalue).__name__)
+		table = self.get_table(tablename)
+		tbcols = list(map(lambda x: x.name, table.cols))
+		if basecol not in tbcols:
+			raise ValueError('basecol value must be a column name.')
+		self.__cursor.execute('SELECT COUNT(*) FROM %s WHERE %s = ?' % (tablename, basecol), (basevalue,))
+		if self.__cursor.fetchone()[0] == 0:
+			return None
+		else:
+			self.__cursor.execute('SELECT %s FROM %s WHERE %s = ?' % (', '.join(tbcols), tablename, basecol), (basevalue,))
+			result = self.__cursor.fetchone()
+			row_tuple = namedtuple('row', ' '.join(tbcols))
+			return row_tuple(*result)
+
+	# Delete Row #
+	def del_row(self, tablename, basecol, basevalue):
+		for x in [tablename, basecol]:
+			if type(x) != str:
+				raise TypeError('Must be str, not %s' % type(x).__name__)
+		if type(basevalue) not in [int, str]:
+			raise TypeError('Must be int, not %s' % type(basevalue).__name__)
+		table = self.get_table(tablename)
+		tbcols = list(map(lambda x: x.name, table.cols))
+		if basecol not in tbcols:
+			raise ValueError('basecol value must be a column name.')
+		self.__cursor.execute('SELECT COUNT(*) FROM %s WHERE %s = ?' % (tablename, basecol), (basevalue,))
+		if self.__cursor.fetchone()[0] == 0:
+			raise RowError('This row not exists.')
+		else:
+			self.__cursor.execute('SELECT %s FROM %s WHERE %s = ?' % (', '.join(tbcols), tablename, basecol), (basevalue,))
+			result = self.__cursor.fetchone()
+			row_tuple = namedtuple('row', ' '.join(tbcols))
+			self.__cursor.execute('DELETE FROM %s WHERE %s = ?' % (tablename, basecol), (basevalue,))
+			self.__conn.commit()
+			return row_tuple(*result)
+
 	# Removing number of instances and close database connection when deleted #
 	def __del__(self):
 		if Sl3.connections > 0:
@@ -94,8 +189,19 @@ class Sl3:
 			Sl3.connections -= 1
 
 if __name__ == '__main__':
+	print('This is running on main file, please import from other location.')
+	import os
 	conct = Sl3()
 	print(Sl3.connections)
 	print(conct.list_tables())
 	conct.add_table('hideki', opa='TEXT', ignore=True)
+	#conct.del_table('hideki')
 	print(conct.list_tables())
+	try:
+		print(conct.create_row('hideki', {'basecol':'opa', 'opa':'tomanocumeo'}))
+	except Exception as e:
+		print(e)
+	print(conct.get_row('hideki', 'opa', 'tomanocumeo'))
+	conct.del_row('hideki', 'opa', 'tomanocumeo')
+	print(conct.get_row('hideki', 'opa', 'tomanocumeo'))
+	os.remove('data.db')
