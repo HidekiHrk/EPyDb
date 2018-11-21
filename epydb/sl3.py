@@ -190,18 +190,3 @@ class Sl3:
 
 if __name__ == '__main__':
 	print('This is running on main file, please import from other location.')
-	import os
-	conct = Sl3()
-	print(Sl3.connections)
-	print(conct.list_tables())
-	conct.add_table('hideki', opa='TEXT', ignore=True)
-	#conct.del_table('hideki')
-	print(conct.list_tables())
-	try:
-		print(conct.create_row('hideki', {'basecol':'opa', 'opa':'tomanocumeo'}))
-	except Exception as e:
-		print(e)
-	print(conct.get_row('hideki', 'opa', 'tomanocumeo'))
-	conct.del_row('hideki', 'opa', 'tomanocumeo')
-	print(conct.get_row('hideki', 'opa', 'tomanocumeo'))
-	os.remove('data.db')
