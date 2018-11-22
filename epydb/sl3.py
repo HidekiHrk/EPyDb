@@ -1,33 +1,7 @@
 import sqlite3
 from collections import namedtuple
-
-# Utility Functions #
-def create_pairs(list1, list2):
-	if len(list1) != len(list2):
-		raise ValueError('Both lists must have the same length.')
-	if len(list1) == 1:
-		return [[list1[0], list2[0]]]
-	else:
-		return [[list1[0], list2[0]], *create_pairs(list1[1:], list2[1:])]
-
-#	Error Classes #
-class TableError(Exception):
-	def __init__(self, string):
-		self.string = string
-	def __repr__(self):
-		return self.string
-
-class ColumnError(Exception):
-	def __init__(self, string):
-		self.string = string
-	def __repr__(self):
-		return self.string
-
-class RowError(Exception):
-	def __init__(self, string):
-		self.string = string
-	def __repr__(self):
-		return self.string
+from epydb.errors import *
+from epydb.utils import *
 
 class Sl3:
 	# Number of Connections #
@@ -40,11 +14,11 @@ class Sl3:
 	
 	# Script to create tables easily at Will #
 	def add_table(self, tablename, **kwargs):
-		ignore = kwargs.get('ignore')
+		ignore = kwargs.get('__ignore__')
 		if type(ignore) != bool:
 			ignore = False
 		elif isinstance(ignore, bool):
-			del kwargs['ignore']
+			del kwargs['__ignore__']
 		elif ignore == None:
 			ignore = False
 		supported_types = ['TEXT', 'INT']
@@ -61,7 +35,7 @@ class Sl3:
 					(', '.join(supported_types), argtype)
 				)
 		else:
-			table_columns_string = ' '.join(table_columns_string)
+			table_columns_string = ', '.join(table_columns_string)
 		self.__cursor.execute(
 			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", 
 			(tablename,)
@@ -89,7 +63,8 @@ class Sl3:
 		return self
 
 	# List All tables in Database #
-	def list_tables(self):
+	@property
+	def tables(self):
 		self.__cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 		table_tuple = namedtuple('table', 'name cols')
 		column_tuple = namedtuple('column', 'id name type notnull dvalue pk')
@@ -105,7 +80,7 @@ class Sl3:
 	def get_table(self, tablename):
 		if type(tablename) != str:
 			raise TypeError('Must be str, not %s' % type(tablename).__name__)
-		tblst = self.list_tables()
+		tblst = self.tables
 		final_table = list(filter(lambda x: x.name == tablename, tblst))
 		return final_table[0] if len(final_table) >= 1 else None
 
@@ -131,23 +106,31 @@ class Sl3:
 			raise ColumnError('Missing columns.')
 		if any(x not in tbcols for x in data):
 			raise ColumnError('Incorrect columns.')
+		supported_types = [str, int, dict, set, tuple, list]
+		if not all(type(data.get(x)) in supported_types for x in data):
+			raise TypeError('Values must be one of these: %s' % ', '.join(map(lambda x: x.__name__, supported_types)))
 		self.__cursor.execute("SELECT COUNT(*) FROM %s where %s = ?" % (tablename, basecol), (data.get(basecol),))
 		if self.__cursor.fetchone()[0] >= 1:
 			raise RowError('This row already exists.')
-		self.__cursor.execute('INSERT INTO %s (%s) values(%s)' % (tablename, ', '.join(data), '?' * len(data))
-			, (*list(map(lambda x: data.get(x), data)),)
+		print('INSERT INTO %s (%s) values(%s)' % (tablename, ', '.join(data),','.join(['?'] * len(data))))
+		self.__cursor.execute('INSERT INTO %s (%s) values(%s)' % (tablename, ', '.join(data), ','.join(['?'] * len(data)))
+			, (*list(map(lambda x: str(data.get(x)) if type(data.get(x)) != int else data.get(x), data)),)
 		)
 		self.__conn.commit()
 		return namedtuple('row', 'values')(dict(list(map(lambda x: [x, data.get(x)], data))))
 
 	# Get Row #
 	def get_row(self, tablename, basecol, basevalue):
+		supported_types = [str, int, dict, set, tuple, list]
 		for x in [tablename, basecol]:
 			if type(x) != str:
 				raise TypeError('Must be str, not %s' % type(x).__name__)
-		if type(basevalue) not in [int, str]:
-			raise TypeError('Must be int, not %s' % type(basevalue).__name__)
+		if type(basevalue) not in supported_types:
+			raise TypeError('Must be one of these(%s), not %s' % (', '.join(map(lambda x: str(type(x).__name__), supported_types)), type(basevalue).__name__))
 		table = self.get_table(tablename)
+		if table == None:
+			raise TableError('Table %s not exists.' % tablename)
+		basevalue = str(basevalue) if type(basevalue) != int else basevalue
 		tbcols = list(map(lambda x: x.name, table.cols))
 		if basecol not in tbcols:
 			raise ValueError('basecol value must be a column name.')
@@ -157,18 +140,51 @@ class Sl3:
 		else:
 			self.__cursor.execute('SELECT %s FROM %s WHERE %s = ?' % (', '.join(tbcols), tablename, basecol), (basevalue,))
 			result = self.__cursor.fetchone()
+			result = tuple(map(lambda x: safe_eval(x) if type(x) != int and type(x) == str else x, result))
 			row_tuple = namedtuple('row', ' '.join(tbcols))
 			return row_tuple(*result)
 
-	# Delete Row #
-	def del_row(self, tablename, basecol, basevalue):
+	# Update Row #
+	def update_row(self, tablename, basecol, basevalue, data):
+		supported_types = [str, int, dict, set, tuple, list]
 		for x in [tablename, basecol]:
 			if type(x) != str:
 				raise TypeError('Must be str, not %s' % type(x).__name__)
-		if type(basevalue) not in [int, str]:
-			raise TypeError('Must be int, not %s' % type(basevalue).__name__)
+		if type(basevalue) not in supported_types:
+			raise TypeError('Must be one of these(%s), not %s' % (', '.join(map(lambda x: str(type(x).__name__), supported_types)), type(basevalue).__name__))
+		if type(data) != dict:
+			raise TypeError('Must be dict, not %s' % type(data).__name__)
+		table = self.get_table(tablename)
+		if table == None:
+			raise TableError('Table %s not exists.' % tablename)
+		tbcols = list(map(lambda x: x.name, table.cols))
+		if basecol not in tbcols:
+			raise ValueError('basecol value must be a column name.')
+		if not all(x in data for x in tbcols):
+			raise ColumnError('Missing columns.')
+		if not all(type(data.get(x)) in supported_types for x in data):
+			raise TypeError('Values must be one of these: %s' % ', '.join(map(lambda x: x.__name__, supported_types)))
+		basevalue = str(basevalue) if type(basevalue) != int else basevalue
+		self.__cursor.execute('SELECT COUNT(*) FROM %s WHERE %s = ?' % (tablename, basecol), (basevalue,))
+		if self.__cursor.fetchone()[0] == 0:
+			raise RowError('This row not exists.')
+		else:
+			valuestring = ', '.join(['%s = %s' % (x[0], x[1]) for x in create_pairs(list(data), len(data) * ['?'])])
+			self.__cursor.execute('UPDATE %s SET %s WHERE %s = ?' % (tablename, valuestring, basecol), (*list(map(lambda x: str(x) if type(x) != int else x, data.values())), basevalue))
+			self.__conn.commit()
+			return self.get_row(tablename, basecol, basevalue)
+
+	# Delete Row #
+	def del_row(self, tablename, basecol, basevalue):
+		supported_types = [str, int, dict, set, tuple, list]
+		for x in [tablename, basecol]:
+			if type(x) != str:
+				raise TypeError('Must be str, not %s' % type(x).__name__)
+		if type(basevalue) not in supported_types:
+			raise TypeError('Must be one of these(%s), not %s' % (', '.join(map(lambda x: str(type(x).__name__), supported_types)), type(basevalue).__name__))
 		table = self.get_table(tablename)
 		tbcols = list(map(lambda x: x.name, table.cols))
+		basevalue = str(basevalue) if type(basevalue) != int else basevalue
 		if basecol not in tbcols:
 			raise ValueError('basecol value must be a column name.')
 		self.__cursor.execute('SELECT COUNT(*) FROM %s WHERE %s = ?' % (tablename, basecol), (basevalue,))
