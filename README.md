@@ -4,7 +4,6 @@
 [![forks](https://img.shields.io/github/issues/HidekiHrk/EPyDb.svg?style=flat-square)]()<br>
 Enhanced Python database generator!<br>
 <br>
-<br>
 **How to use:**<br>
 **Sqlite3:**<br>
 ```python
@@ -55,7 +54,7 @@ con.execute_sql('CREATE TABLE IF NOT EXISTS table1 (info1 TEXT, info2 TEXT)', co
 # None returns nothing, 'one' returns "cursor.fetchone()", 'all' returns "cursor.fetchall()"
 ```
 <br>
-**Errors**:
+Errors:
 
 - epydb.errors.TableError
 - epydb.errors.ColumnError
