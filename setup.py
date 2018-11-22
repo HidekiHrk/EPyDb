@@ -8,7 +8,7 @@ setup(
   author = 'HidekiHrk',
   author_email = 'hidekihiroki123@gmail.com',
   url = 'https://github.com/HidekiHrk/EPyDb',
-  download_url = 'https://github.com/user/reponame/archive/v_01dev.tar.gz',
+  download_url = 'https://github.com/HidekiHrk/EPyDb/archive/v_0.1dev.tar.gz',
   keywords = ['python', 'db', 'database', 'better'],
   install_requires=[],
   classifiers=[
