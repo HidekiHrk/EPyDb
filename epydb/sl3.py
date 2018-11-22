@@ -13,7 +13,7 @@ class Sl3:
 		self.__cursor = self.__conn.cursor()
 	
 	# Script to create tables easily at Will #
-	def add_table(self, tablename, **kwargs):
+	def create_table(self, tablename, **kwargs):
 		ignore = kwargs.get('__ignore__')
 		if type(ignore) != bool:
 			ignore = False
