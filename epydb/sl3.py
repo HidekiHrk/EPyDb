@@ -47,7 +47,22 @@ class Sl3:
 			if not ignore:
 				raise TableError('Table %s already exists.' % tablename)
 		return self
-	
+
+	# Script to execute an sql line #
+	def execute_sql(self, *args, fetch=None, commit=False):
+		self.__cursor.execute(*args)
+		if commit:
+			self.__conn.commit()
+		if fetch != None:
+			if fetch.lower() in ['one', 'all']:
+				result = {
+					'one':lambda: self.__cursor.fetchone(),
+					'all':lambda: self.__cursor.fetchall()
+				}.get(fetch.lower())
+				return result()
+			else:
+				raise ValueError('fetch must be one or all, not ' + fetch)
+
 	# Script to delete tables #
 	def del_table(self, tablename, ignore=False):
 		self.__cursor.execute(
