@@ -7,6 +7,11 @@ Enhanced Python database generator!
 <br>
 # How to use
 <br>
+```javascript
+if (isAwesome){
+  return true
+}
+```
 <h3>Sqlite3:</h3>
 ```python
 import epydb
