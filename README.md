@@ -2,17 +2,11 @@
 [![version](https://img.shields.io/badge/version-0.1dev-blue.svg?style=flat-square)]() 
 [![license](https://img.shields.io/github/license/HidekiHrk/EPyDb.svg?style=flat-square)](https://github.com/HidekiHrk/EPyDb/blob/master/LICENSE) 
 [![forks](https://img.shields.io/github/issues/HidekiHrk/EPyDb.svg?style=flat-square)]()<br>
-Enhanced Python database generator!
+Enhanced Python database generator!<br>
 <br>
 <br>
-# How to use
-<br>
-```javascript
-if (isAwesome){
-  return true
-}
-```
-<h3>Sqlite3:</h3>
+**How to use:**<br>
+**Sqlite3:**<br>
 ```python
 import epydb
 
@@ -60,3 +54,9 @@ con.execute_sql('CREATE TABLE IF NOT EXISTS table1 (info1 TEXT, info2 TEXT)', co
 # fetch returns the value of query and must be None, 'one' or 'all'
 # None returns nothing, 'one' returns "cursor.fetchone()", 'all' returns "cursor.fetchall()"
 ```
+<br>
+**Errors**:
+
+- epydb.errors.TableError
+- epydb.errors.ColumnError
+- epydb.errors.RowError
