@@ -1,11 +1,9 @@
 # EPyDb
 [![version](https://img.shields.io/badge/version-0.1dev-blue.svg?style=flat-square)]() 
 [![license](https://img.shields.io/github/license/HidekiHrk/EPyDb.svg?style=flat-square)](https://github.com/HidekiHrk/EPyDb/blob/master/LICENSE) 
-[![forks](https://img.shields.io/github/issues/HidekiHrk/EPyDb.svg?style=flat-square)]()<br>
+[![forks](https://img.shields.io/github/issues/HidekiHrk/EPyDb.svg?style=flat-square)]()
+[![PyPi](https://img.shields.io/badge/PyPi-pip%20install%20EPyDb-blue.svg?style=flat-square)](https://pypi.org/project/EPyDb/)<br>
 Enhanced Python database generator!<br>
-```markdown
-pip install EPyDb
-```
 <br>
 **How to use:**<br>
 **Sqlite3:**<br>
