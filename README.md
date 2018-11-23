@@ -10,6 +10,7 @@ Enhanced Python database generator!<br>
 import epydb
 
 # Create Database obj #
+# Sqlite3(filename='data.db')
 con = epydb.Sqlite3()
 
 # Create a Table #
