@@ -3,6 +3,9 @@
 [![license](https://img.shields.io/github/license/HidekiHrk/EPyDb.svg?style=flat-square)](https://github.com/HidekiHrk/EPyDb/blob/master/LICENSE) 
 [![forks](https://img.shields.io/github/issues/HidekiHrk/EPyDb.svg?style=flat-square)]()<br>
 Enhanced Python database generator!<br>
+```markdown
+pip install EPyDb
+```
 <br>
 **How to use:**<br>
 **Sqlite3:**<br>
